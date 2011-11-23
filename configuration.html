@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML+RDFa 1.0//EN"
+    "http://www.w3.org/MarkUp/DTD/xhtml-rdfa-1.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"
+      xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+      xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+      xmlns:dc="http://purl.org/dc/elements/1.1/"
+      xmlns:foaf="http://xmlns.com/foaf/0.1/">
+  
+  <head>
+    
+    
+      
+        <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=UTF-8" />
+      
+      
+      <title>
+        kivyMaps » 
+        configuring kivyMaps
+      </title>
+      
+      
+        <!-- YUI CSS reset, fonts, base -->
+        <link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/combo?3.0.0/build/cssreset/reset-min.css&amp;3.0.0/build/cssfonts/fonts-min.css&amp;3.0.0/build/cssbase/base-min.css" media="screen, projection" />
+        
+        <link rel="stylesheet" type="text/css" href="media/css/style.css" media="screen, projection" />
+        <link rel="stylesheet" type="text/css" href="media/css/pygments.css" media="screen, projection" />
+      
+      
+      
+      
+      
+        
+      
+    
+  </head>
+  
+  <body >
+    
+      
+      
+        
+          
+  
+    <ol id="breadcrumbs">
+      
+        <li class="crumb-0 not-last">
+          
+            <a href="./">index</a>
+          
+        </li>
+      
+        <li class="crumb-1 last">
+          
+            configuration
+          
+        </li>
+      
+    </ol> <!-- ol#breadcrumbs -->
+  
+
+        
+      
+      
+      <div id="content">
+        
+        
+        
+        <h1>configuring kivyMaps</h1>
+<p>The example application of kivyMaps displays some rather vanilla maps like the OpenStreetMap and Microsoft Bing tiles.</p>
+<p>To display other maps and WMS services in your application, you will have to work with the python files that define the application. Background maps are defined as instances of the <code>TileServer</code> class, overlays are instances of <code>WMSOverlayServer</code>
+In the following are some code examples in lieu of a proper documentation:</p>
+<h2>The minimal configuration</h2>
+<p>The following is a simple app that shows only the kivyMaps widget, and OpenStreetMap as mapping provider:</p>
+<div class="codehilite"><pre><span class="nb">import</span> <span class="n">kivy</span>
+<span class="n">kivy</span><span class="o">.</span><span class="nb">require</span><span class="p">(</span><span class="s">&#39;1.0.7&#39;</span><span class="p">)</span>
+
+<span class="n">from</span> <span class="n">kivy</span><span class="o">.</span><span class="n">app</span> <span class="nb">import</span> <span class="n">App</span>
+<span class="n">from</span> <span class="n">kivy</span><span class="o">.</span><span class="n">uix</span><span class="o">.</span><span class="n">floatlayout</span> <span class="nb">import</span> <span class="n">FloatLayout</span>
+<span class="n">from</span> <span class="n">MapViewer</span> <span class="nb">import</span> <span class="n">MapViewer</span>
+
+<span class="n">class</span> <span class="n">KVMaps</span><span class="p">(</span><span class="n">App</span><span class="p">):</span>
+  <span class="n">def</span> <span class="n">build</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+    <span class="n">layout</span> <span class="o">=</span> <span class="n">FloatLayout</span><span class="p">()</span>
+    <span class="n">self</span><span class="o">.</span><span class="n">mv</span> <span class="o">=</span> <span class="n">MapViewer</span><span class="p">(</span><span class="n">maptype</span><span class="o">=</span><span class="s">&quot;Roadmap&quot;</span><span class="p">,</span> <span class="n">provider</span><span class="o">=</span><span class="s">&quot;openstreetmap&quot;</span><span class="p">)</span>
+    <span class="n">layout</span><span class="o">.</span><span class="n">add_widget</span><span class="p">(</span><span class="n">self</span><span class="o">.</span><span class="n">mv</span><span class="p">)</span>
+<span class="k">return</span> <span class="n">layout</span>
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="n">in</span> <span class="p">(</span><span class="s">&#39;__android__&#39;</span><span class="p">,</span><span class="s">&#39;__main__&#39;</span><span class="p">):</span>
+  <span class="n">KVMaps</span><span class="p">()</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</pre></div>
+
+
+<h2>Background tile servers</h2>
+<p>Initialize the MapViewer widget with the provider and map type of choice. Implementations are provided for some common tile servers and WMS-T:</p>
+<div class="codehilite"><pre><span class="n">MapViewer</span><span class="p">(</span><span class="n">maptype</span><span class="o">=</span><span class="s">&quot;Roadmap&quot;</span><span class="p">,</span> <span class="n">provider</span><span class="o">=</span><span class="s">&quot;openstreetmap&quot;</span><span class="p">)</span>
+</pre></div>
+
+
+<p>Custom WMS-T services can be defined. The following example defines a WMS-T with a custom bounding box and projection which defines the tiling scheme:<br />
+</p>
+<div class="codehilite"><pre><span class="n">class</span> <span class="n">OpenCacheTileServer</span><span class="p">(</span><span class="n">WMSTileServer</span><span class="p">):</span>
+    <span class="n">provider_name</span> <span class="o">=</span> <span class="s">&#39;opencache&#39;</span>
+    <span class="n">provider_host</span> <span class="o">=</span> <span class="s">&#39;opencache.statkart.no&#39;</span>
+    <span class="n">available_maptype</span> <span class="o">=</span> <span class="n">dict</span><span class="p">(</span><span class="n">topo2</span><span class="o">=</span><span class="s">&#39;topo2&#39;</span><span class="p">,</span> 
+                             <span class="n">topo2graatone</span><span class="o">=</span><span class="s">&#39;topo2graatone&#39;</span><span class="p">,</span> 
+                             <span class="n">toporaster2</span><span class="o">=</span><span class="s">&#39;toporaster2&#39;</span><span class="p">,</span> 
+                             <span class="n">sjo_hovedkart2</span> <span class="o">=</span> <span class="s">&#39;sjo_hovedkart2&#39;</span><span class="p">,</span> 
+                             <span class="n">europa</span><span class="o">=</span><span class="s">&#39;europa&#39;</span><span class="p">)</span>
+
+    <span class="n">def</span> <span class="n">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+      <span class="n">WMSTileServer</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">)</span>
+      <span class="n">self</span><span class="o">.</span><span class="n">initFromGetCapabilities</span><span class="p">(</span><span class="s">&#39;http://opencache.statkart.no&#39;</span><span class="p">,</span> 
+                                   <span class="s">&#39;/gatekeeper/gk/gk.open&#39;</span><span class="p">,</span> 
+                                   <span class="n">srs</span><span class="o">=</span><span class="s">&#39;EPSG:32633&#39;</span><span class="p">,</span> 
+                                   <span class="n">layer</span> <span class="o">=</span> <span class="s">&#39;topo2&#39;</span><span class="p">)</span>
+      <span class="n">self</span><span class="o">.</span><span class="n">customBounds</span> <span class="o">=</span> <span class="n">True</span>
+      <span class="n">self</span><span class="o">.</span><span class="n">bounds</span>       <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">2500000</span><span class="p">,</span> <span class="mi">3500000</span><span class="p">,</span> <span class="mi">3045984</span><span class="p">,</span> <span class="mi">9045984</span><span class="p">)</span>
+</pre></div>
+
+
+<h2>Overlay WMS services are defined using similar parameters:</h2>
+<div class="codehilite"><pre><span class="n">class</span> <span class="n">NorgeIBilder</span><span class="p">(</span><span class="n">WMSOverlayServer</span><span class="p">):</span>
+    <span class="n">provider_name</span> <span class="o">=</span> <span class="s">&#39;geonorge&#39;</span>
+    <span class="n">provider_host</span> <span class="o">=</span> <span class="s">&#39;wms.geonorge.no&#39;</span>
+
+    <span class="n">def</span> <span class="n">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+      <span class="n">super</span><span class="p">(</span><span class="n">WMSOverlayServer</span><span class="p">,</span> <span class="n">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">()</span>
+      <span class="n">self</span><span class="o">.</span><span class="n">initFromGetCapabilities</span><span class="p">(</span><span class="s">&#39;http://wms.geonorge.no&#39;</span><span class="p">,</span> 
+                                   <span class="s">&#39;/skwms1/wms.norgeibilder&#39;</span><span class="p">,</span> 
+                                   <span class="n">layer</span><span class="o">=</span><span class="s">&quot;SatelliteImage,OrtofotoAlle&quot;</span><span class="p">,</span> 
+                                   <span class="n">srs</span><span class="o">=</span><span class="s">&quot;EPSG:32633&quot;</span><span class="p">)</span>
+      <span class="n">self</span><span class="o">.</span><span class="n">customBounds</span> <span class="o">=</span> <span class="n">True</span>
+      <span class="n">self</span><span class="o">.</span><span class="n">bounds</span>       <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">2500000</span><span class="p">,</span> <span class="mi">3500000</span><span class="p">,</span> <span class="mi">3045984</span><span class="p">,</span> <span class="mi">9045984</span><span class="p">)</span>
+      <span class="n">self</span><span class="o">.</span><span class="n">max_alpha</span> <span class="o">=</span> <span class="mi">1</span>    <span class="c1"># range [0.0-1.0]</span>
+                            <span class="c1"># defines the opacity of the overlay after fade-in</span>
+</pre></div>
+
+
+<p>To enable or disable an overlay, append or remove the class to/from the list of overlays defined in <code>MapViewer.map.overlays</code>.</p>
+<h1>parameters</h1>
+<h2>MapViewer</h2>
+<ul>
+<li><code>provider</code> - the identifier by which the tileserver was registered (using <code>Tileserver.register</code>)</li>
+<li>
+<p><code>maptype</code> - every tileserver can provide a dictionary of map types to display</p>
+</li>
+<li>
+<p><code>close_on_idle</code> - Boolean - if enabled, the application will close after 300 seconds of inactivity.</p>
+</li>
+<li><code>status_cb</code> - Allows to provide a callback method to read currently displayed tile count and number of tiles in the loading queue.</li>
+</ul>
+<h2>WMS*Server</h2>
+<ul>
+<li><code>provider_name</code> - identifier of the map provider, currently not in use</li>
+<li>
+<p><code>provider_host</code> - the request URL will be assembled using this hostname</p>
+</li>
+<li>
+<p><code>initFromGetCapabilities</code> - this method allows to send a GetCapabilities request to the server. If only the URL parameters are given, 
+    the capabilities will be logged to stdout and the first one chosen by default. If the parameters <code>layer</code> and <code>srs</code> are given, the 
+    selected layer and SRS will be requested. A parameter <code>index</code> may be used if the name of the layer is unknown, but note that it is 
+    not a reliable identifier.</p>
+</li>
+<li>
+<p><code>customBounds</code> / <code>bounds</code> - If enabled, the coordinate system will be mapped to these bounds. </p>
+</li>
+<li><code>max_alpha</code> - Overlays will be displayed with the given opacity</li>
+</ul>
+        
+        
+        
+        
+        <hr class="clear" />
+      </div> <!-- div#content -->
+      
+      
+      <div id="footer">
+        <p>
+          
+            kivyMaps —
+          
+          Powered by <a href="http://markdoc.org/">Markdoc</a>.
+        </p>
+      </div>
+      
+    
+    
+    
+    <hr class="clear" />
+  </body>
+</html>
