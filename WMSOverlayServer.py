@@ -17,6 +17,7 @@ except:
 class WMSOverlayServer(object):
     cache = {} 
     available_maptype = dict(roadmap = 'Roadmap') # default
+    type = "wms"
  
     '''Generic WMS server'''
     def __init__(self, progress_callback=None):    

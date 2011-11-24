@@ -20,13 +20,13 @@ from projections import *
 
 ### static configuration - TODO: parametrize ####################################
 # number of threads to use
-TILESERVER_POOLSIZE = 60
-TILESERVER_MAXPIPELINE = 5
+TILESERVER_POOLSIZE = 10
+TILESERVER_MAXPIPELINE = 1
 #################################################################################
 
 ### init cache - TODO: parametrize ##############################################
-Cache.register('tileserver.tiles', limit=10, timeout=100) #1000/10000
-Cache.register('tileserver.tilesalpha', limit=10, timeout=100)
+Cache.register('tileserver.tiles', limit=10, timeout=10) #1000/10000
+Cache.register('tileserver.tilesalpha', limit=10, timeout=10)
 #################################################################################
 
 class TileServer(object):

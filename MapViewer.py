@@ -20,7 +20,7 @@ from kivy.uix.stencilview import StencilView
 from kivy.uix.button import Button
 from kivy.uix.image import Image
 
-from kivy.graphics import Color, Rectangle
+from kivy.graphics import Color, Rectangle, Ellipse
 from kivy.graphics.transformation import Matrix
 from kivy.vector import Vector
 
@@ -29,6 +29,8 @@ from os.path import join, dirname
 
 from TileServer import TileServer
 from projections import *
+
+from WFSOverlayServer import GMLNS
 
 from os import _exit
 INACTIVITY_TIMEOUT = 300 # in s - if close_on_idle is True, mapviewer will exit the application after prolonged inactivity
@@ -293,7 +295,7 @@ class MapViewerPlane(ScatterPlane):
       # drop the previous zoom
       self.tiles = tiles = []
       will_break = False
-      for z in xrange(self.zoom, self.zoom-2, -1):
+      for z in xrange(self.zoom, self.zoom-1, -1):
         if self.compute_tiles_for_zoom(z, tiles):
           if z > 0:
             self.compute_tiles_for_zoom(z - 1, tiles)
@@ -307,27 +309,40 @@ class MapViewerPlane(ScatterPlane):
         _exit(1)
     
     for overlay in self.overlays:
-      image = None
-      if self.lastmove is None or time.time() > self.lastmove + 0.5: # wait a second after moving before we try to contact the WMS
-        image = overlay.get(self, parent.width, parent.height)
-      oldalpha = overlay.max_alpha
-      if (image not in (None, False)) and image.loaded:
-        if image not in self.loadtimes:
-          self.loadtimes[image]=time.time()
-        alpha = max(0,min((time.time()-self.loadtimes[image]) * 1, overlay.max_alpha))  # fadein
-        oldalpha = overlay.max_alpha - alpha
-        if oldalpha == 0: # as soon as the old image is faded out, put this one in the cache
-          self.overlaycache[overlay.provider_name] = image, self.cmin, self.csize # self.omin, osize
-        with self.canvas:
-          Color(1, 1, 1, alpha)
-          Rectangle(pos=self.cmin, size=self.csize, texture=image.texture)
+      if overlay.type == "wfs":
+          geometries = None
+          if self.lastmove is None or time.time() > self.lastmove + 0.5: # wait a second after moving before we try to contact the WFS
+            geometries = overlay.get(self, parent.width, parent.height)
+          if geometries is not None:
+            with self.canvas:
+              for geom in geometries:
+                if geom.tag == "{%s}Point" % GMLNS:
+                  llpos = map(float,geom.getchildren()[0].text.split())
+                  xypos = ...(llpos[0], llpos[1])
+                  print "mapping point %s to %s" % (str(llpos), str(xypos))
+                  Ellipse(pos=xypos, size=(5,5))
+      elif overlay.type == "wms":
+          image = None
+          if self.lastmove is None or time.time() > self.lastmove + 0.5: # wait a second after moving before we try to contact the WMS
+            image = overlay.get(self, parent.width, parent.height)
+          oldalpha = overlay.max_alpha
+          if (image not in (None, False)) and image.loaded:
+            if image not in self.loadtimes:
+              self.loadtimes[image]=time.time()
+            alpha = max(0,min((time.time()-self.loadtimes[image]) * 1, overlay.max_alpha))  # fadein
+            oldalpha = overlay.max_alpha - alpha
+            if oldalpha == 0: # as soon as the old image is faded out, put this one in the cache
+              self.overlaycache[overlay.provider_name] = image, self.cmin, self.csize # self.omin, osize
+            with self.canvas:
+              Color(1, 1, 1, alpha)
+              Rectangle(pos=self.cmin, size=self.csize, texture=image.texture)
 
-      # try displaying the previous image from this overlay, until the next one is fully displayed
-      image, pos, isize = self.overlaycache.get(overlay.provider_name, (None, None, None))
-      if image:
-        with self.canvas:
-          Color(1, 1, 1, oldalpha)
-          Rectangle(pos=pos, size=isize, texture=image.texture)
+          # try displaying the previous image from this overlay, until the next one is fully displayed
+          image, pos, isize = self.overlaycache.get(overlay.provider_name, (None, None, None))
+          if image:
+            with self.canvas:
+              Color(1, 1, 1, oldalpha)
+              Rectangle(pos=pos, size=isize, texture=image.texture)
           
     if self.status_cb:
       self.status_cb(self.tileserver.q_count, self.tilecount)
