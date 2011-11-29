@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 '''
   Generic map viewer widget for kivy. 
   sourced from mtMaps for pyMT by tito (Mathieu Virbel / kivy dev team)
@@ -19,12 +21,14 @@ from kivy.uix.stencilview import StencilView
 
 from kivy.uix.button import Button
 from kivy.uix.image import Image
+from kivy.uix.popup import Popup
+from kivy.uix.label import Label
 
-from kivy.graphics import Color, Rectangle, Ellipse
+from kivy.graphics import Color, Rectangle, Ellipse, Line
 from kivy.graphics.transformation import Matrix
 from kivy.vector import Vector
 
-import time
+import time, pickle
 from os.path import join, dirname
 
 from TileServer import TileServer
@@ -217,7 +221,8 @@ class MapViewerPlane(ScatterPlane):
                 )
 
                 ret = ret and self.tile_exist(*tile)
-                tiles.append(tile)
+                if zoom > self.zoom-1: #do not prefetch the whole pyramid
+                    tiles.append(tile)
 
         return ret
 
@@ -295,7 +300,7 @@ class MapViewerPlane(ScatterPlane):
       # drop the previous zoom
       self.tiles = tiles = []
       will_break = False
-      for z in xrange(self.zoom, self.zoom-1, -1):
+      for z in xrange(self.zoom, 0, -1): #self.zoom-1
         if self.compute_tiles_for_zoom(z, tiles):
           if z > 0:
             self.compute_tiles_for_zoom(z - 1, tiles)
@@ -309,19 +314,7 @@ class MapViewerPlane(ScatterPlane):
         _exit(1)
     
     for overlay in self.overlays:
-      if overlay.type == "wfs":
-          geometries = None
-          if self.lastmove is None or time.time() > self.lastmove + 0.5: # wait a second after moving before we try to contact the WFS
-            geometries = overlay.get(self, parent.width, parent.height)
-          if geometries is not None:
-            with self.canvas:
-              for geom in geometries:
-                if geom.tag == "{%s}Point" % GMLNS:
-                  llpos = map(float,geom.getchildren()[0].text.split())
-                  xypos = ...(llpos[0], llpos[1])
-                  print "mapping point %s to %s" % (str(llpos), str(xypos))
-                  Ellipse(pos=xypos, size=(5,5))
-      elif overlay.type == "wms":
+      if overlay.type == "wms":
           image = None
           if self.lastmove is None or time.time() > self.lastmove + 0.5: # wait a second after moving before we try to contact the WMS
             image = overlay.get(self, parent.width, parent.height)
@@ -343,16 +336,58 @@ class MapViewerPlane(ScatterPlane):
             with self.canvas:
               Color(1, 1, 1, oldalpha)
               Rectangle(pos=pos, size=isize, texture=image.texture)
+      elif overlay.type == "wfs":
+          geometries = None
+          if self.lastmove is None or time.time() > self.lastmove + 0.5: # wait a second after moving before we try to contact the WFS
+            geometries = overlay.get(self, parent.width, parent.height)
+          if geometries is not None:
+            with self.canvas:
+              for geom in geometries:
+                if geom.tag == "{%s}Point" % GMLNS:
+                  copos = map(float,geom.getchildren()[0].text.split())
+                  l, m = overlay.co_to_ll(copos[0], copos[1])
+                  x,y = self.get_xy_from_latlon(l, m) 
+                  
+                  Color(0, 0, 0, 1)
+                  r = 10.0/self.scale
+                  Ellipse(pos=(x-r/2, y-r/2), size=(r,r))
+                  Color(1, 1, 1, 1)
+                  r = 8.0/self.scale
+                  Ellipse(pos=(x-r/2, y-r/2), size=(r,r))
+                elif geom.tag == "{%s}LinearRing" % GMLNS:
+                  copos = map(float,geom.getchildren()[0].text.split())
+                  points = []
+                  for i in xrange(0,len(copos),2):
+                    l, m = overlay.co_to_ll(copos[0], copos[1])
+                    x, y = self.get_xy_from_latlon(l, m) 
+                    points.append(x)
+                    points.append(y)
+                  points.extend(points[0:1])
+                  Color(1, 0.5, 0.5, 1)
+                  Line(points=points)
           
     if self.status_cb:
       self.status_cb(self.tileserver.q_count, self.tilecount)
 
+  def checkTooltips(self, touch):
+    l, m = self.get_latlon_from_xy(*touch.pos)
+    for overlay in self.overlays:
+      tip = overlay.getInfo(l, m, 100.0/self.scale)
+      if tip is not None:
+        popup = Popup(title='WFS FeatureInfo',
+            content=Label(text=tip),
+            size_hint=(None, None), size=(800, 400))
+        popup.open()
+        break
+      
   def on_touch_move(self, touch):
     super(MapViewerPlane, self).on_touch_move(touch) # delegate to scatterplane first
     self.lastmove = time.time()
     
   def on_touch_down(self, touch):
     super(MapViewerPlane, self).on_touch_down(touch) # delegate to scatterplane first
+    # print self._get_pos(), self._get_scale()
+    self.checkTooltips(touch)
     
   def get_latlon_from_xy(self, x, y):
     '''Get latitude/longitude from x/y in scatter (x/y will be transformed
@@ -369,46 +404,6 @@ class MapViewerPlane(ScatterPlane):
     '''Return x/y location from latitude/longitude'''
     x, y = latlon_to_unit(lat, lon)      # FIXME: grok + document
     return Vector(x + 1, y + 1) * (TILE_W, TILE_H)
-  
-  def move_to(self, latlon, latlon2, **kwargs):
-        '''Move the view to a rectangle of latlon to latlon2
-        '''
-        kwargs.setdefault('duration', 2)
-        kwargs.setdefault('alpha_function', 'ease_in_out_quad')
-
-        # Save, beacause well let scatter do actual computation
-        # on its transform. Then reset it once we know the right
-        # values, and use animate ;P
-        old_scale = self.scale
-        old_center = self.center
-
-        local_pos1 = Vector(self.get_xy_from_latlon(*latlon))
-        local_pos2 = Vector(self.get_xy_from_latlon(*latlon2))
-
-        # translate in parent space becasue apply_angle_scale_trans
-        # takes parent space coords
-        pos1 = Vector(self.to_parent(*local_pos1))
-        pos2 = Vector(self.to_parent(*local_pos2))
-
-        # middle between p1 and p2
-        middle = (pos1 + 0.5*(pos2-pos1))
-
-        # center of screen
-        center = Vector(self.parent.center)
-
-        # move by the amount parent center is away from middle
-        # of wanted bounding box
-        translate =  center - middle
-        self.apply_angle_scale_trans(0, 1, translate, point=Vector(0,0))
-
-        # scale factor is current width seen / width which we aim for
-        # distance between p1, p2 in local space
-        distance = max(local_pos1.distance(local_pos2), 0.0000001)
-        # length of diagonal of screen
-        screen_span = Vector(self.to_local(*self.parent.pos))
-        screen_span = screen_span.distance(self.to_local(*center)) * 2
-        scale = screen_span / distance - 0.1
-        self.apply_angle_scale_trans(0, scale, Vector(0,0), point=center)
         
 
   def distance(self, latlon1, latlon2):
@@ -464,7 +459,12 @@ class MapViewer(StencilView):
       return False
     return super(MapViewer, self).on_touch_up(touch)
     
+  def move_to(self,x,y,z):
+    self.map._set_scale(z)
+    self.map._set_pos((x,y))
+    
   def reset(self):
-    self.map.move_to((-45,-90),(85,180)) #that's a bit arbitrary
+    self.move_to(-6555.742468339471, -10304.331710006307,5.78284048773) #1920x1080
+    #self.move_to(-3748.8157983360124, -5857.7510923382652, 3.26647927983) #android
 
 Factory.register('MapViewer', MapViewer)

@@ -74,7 +74,7 @@ class WFSOverlayServer(object):
       self.tr = parent.top_right
       self.zoom = parent.zoom
       
-      url = self.geturl(self.bl[0], self.bl[1], self.tr[0], self.tr[1], self.zoom, width, height)
+      url = self.geturl(self.bl[0], self.bl[1], self.tr[0], self.tr[1])
       if not url:
         return None
 
@@ -96,20 +96,56 @@ class WFSOverlayServer(object):
         Logger.error('OverlayServer could not find (or read) WFS from %s [%s]' % (url, e))
         image = None
 
-    def geturl(self, lat1, lon1, lat2, lon2, zoom, w, h):
+    def getInfoText(self, member):
+      fields = member.getchildren()[0].getchildren()
+      info = ""
+      for field in fields:
+        if field.text is not None and field.text.strip() != "":
+          info += "%s: %s\n" % (field.tag[field.tag.index("}")+1:], field.text)
+      return info
+        
+    def getInfo(self, lat, lon, epsilon):
       try:
-        if self.customBounds: 
-          x1, y1 = latlon_to_custom(lat1, lon1, self.bounds)
-          x2, y2 = latlon_to_custom(lat2, lon2, self.bounds)
-        elif self.isPLatLon:   # patch for android - does not require pyproj library
-          x1, y1 = lon1, lat1
-          x2, y2 = lon2, lat2
-        elif self.isPGoogle: # patch for android - does not require pyproj library
-          x1, y1 = latlon_to_google (lat1, lon1)
-          x2, y2 = latlon_to_google (lat2, lon2)
-        else:
-          x1, y1 = transform(pLatlon, self.projection, lon1, lat1)
-          x2, y2 = transform(pLatlon, self.projection, lon2, lat2)
+        url = self.geturl(lat-epsilon, lon-epsilon, lat+epsilon, lon+epsilon)
+      except:
+        return None
+      try:
+        xml = self.load('http://' + self.provider_host + url)
+        tree = ET.fromstring(xml)
+        member = tree.find("{%s}featureMember" % GMLNS)
+        if member is not None:
+          infotext = self.getInfoText(member)
+          return infotext
+      except Exception,e:
+        Logger.error('OverlayServer could not find (or read) WFS from %s [%s]' % (url, e))
+      return None
+
+    def xy_to_co(self, lat, lon):
+      if self.customBounds: 
+        x, y = latlon_to_custom(lat, lon, self.bounds)
+      elif self.isPLatLon:   # patch for android - does not require pyproj library
+        x, y = lon, lat
+      elif self.isPGoogle: # patch for android - does not require pyproj library
+        x, y = latlon_to_google (lat, lon)
+      else:
+        x, y = transform(pLatlon, self.projection, lon, lat)
+      return x,y
+
+    def co_to_ll(self,x,y):
+      if self.customBounds: 
+        l, m = custom_to_latlon(x, y, self.bounds)
+      elif self.isPLatLon:   # patch for android - does not require pyproj library
+        l, m = y, x
+      elif self.isPGoogle: # patch for android - does not require pyproj library
+        l, m = google_to_latlon (y, x)
+      else:
+        l, m = transform(self.projection, pLatlon, y, x)
+      return l, m
+      
+    def geturl(self, lat1, lon1, lat2, lon2):
+      try:
+        x1, y1 = self.xy_to_co(lat1, lon1)
+        x2, y2 = self.xy_to_co(lat2, lon2)
         return self.url + "&bbox=%f,%f,%f,%f" % (x1, y1, x2, y2)
       except RuntimeError, e:
         return None
@@ -150,6 +186,7 @@ class WFSOverlayServer(object):
       print "Displaying from %s/%s: feature %s in SRS %s." % (host, baseurl, feature, srs)
       
       # generate tile URL and init projection by EPSG code
+      self.feature = feature
       self.url = baseurl + "?typeName=namespace:%s&SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&maxFeatures=50" % (feature)
       self.isPGoogle = False
       self.isPLatLon = False

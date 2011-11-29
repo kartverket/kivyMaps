@@ -26,6 +26,9 @@ class WMSOverlayServer(object):
     def setProgressCallback(self, progress_callback):
       self.progress_callback = progress_callback
     
+    def getInfo(self, lat, lon, epsilon):
+      return None
+    
     def get(self, parent, width, height): 
     
       self.bl = parent.bottom_left
@@ -48,20 +51,33 @@ class WMSOverlayServer(object):
         Logger.error('OverlayServer could not find (or read) image %s [%s]' % (url, e))
         image = None
 
+    def xy_to_co(self, lat, lon):
+      if self.customBounds: 
+        x, y = latlon_to_custom(lat, lon, self.bounds)
+      elif self.isPLatLon:   # patch for android - does not require pyproj library
+        x, y = lon, lat
+      elif self.isPGoogle: # patch for android - does not require pyproj library
+        x, y = latlon_to_google (lat, lon)
+      else:
+        x, y = transform(pLatlon, self.projection, lon, lat)
+      return x,y
+
+    def co_to_ll(self, x,y):
+      if self.customBounds: 
+        u, v = custom_to_unit(lat, lon, self.bounds)
+        l, m = unit_to_latlon(u, v)
+      elif self.isPLatLon:   # patch for android - does not require pyproj library
+        l, m = y, x
+      elif self.isPGoogle: # patch for android - does not require pyproj library
+        l, m = google_to_latlon (y, x)
+      else:
+        l, m = transform(self.projection, pLatlon, y, x)
+      return l, m
+      
     def geturl(self, lat1, lon1, lat2, lon2, zoom, w, h):
       try:
-        if self.customBounds: 
-          x1, y1 = latlon_to_custom(lat1, lon1, self.bounds)
-          x2, y2 = latlon_to_custom(lat2, lon2, self.bounds)
-        elif self.isPLatLon:   # patch for android - does not require pyproj library
-          x1, y1 = lon1, lat1
-          x2, y2 = lon2, lat2
-        elif self.isPGoogle: # patch for android - does not require pyproj library
-          x1, y1 = latlon_to_google (lat1, lon1)
-          x2, y2 = latlon_to_google (lat2, lon2)
-        else:
-          x1, y1 = transform(pLatlon, self.projection, lon1, lat1)
-          x2, y2 = transform(pLatlon, self.projection, lon2, lat2)
+        x1, y1 = self.xy_to_co(lat1, lon1)
+        x2, y2 = self.xy_to_co(lat2, lon2)
         return self.url + "&BBOX=%f,%f,%f,%f&WIDTH=%i&HEIGHT=%i&ext=.png" % (x1, y1, x2, y2, w, h)
       except RuntimeError, e:
         return None

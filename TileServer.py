@@ -21,7 +21,7 @@ from projections import *
 ### static configuration - TODO: parametrize ####################################
 # number of threads to use
 TILESERVER_POOLSIZE = 10
-TILESERVER_MAXPIPELINE = 1
+TILESERVER_MAXPIPELINE = 2
 #################################################################################
 
 ### init cache - TODO: parametrize ##############################################
