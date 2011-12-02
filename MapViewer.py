@@ -64,6 +64,7 @@ class MapViewerPlane(ScatterPlane):
     kwargs.setdefault('scale_min', 1)
     super(MapViewerPlane, self).__init__(**kwargs)    # init ScatterPlane with above parameters
     self.status_cb    = kwargs.get('status_cb', None) # return debug information to callback method
+    self.legend_cb    = kwargs.get('legend_cb', None) # return debug information to callback method
 
     self._tileserver = None
     self.tileserver = kwargs.get('tileserver', None)
@@ -312,7 +313,10 @@ class MapViewerPlane(ScatterPlane):
     
     if (not self.lastmove is 0) and time.time() > self.lastmove + INACTIVITY_TIMEOUT: 
         _exit(1)
-    
+
+    if self.legend_cb:
+        self.legend_cb(None)
+        
     for overlay in self.overlays:
       if overlay.type == "wms":
           image = None
@@ -325,17 +329,24 @@ class MapViewerPlane(ScatterPlane):
             alpha = max(0,min((time.time()-self.loadtimes[image]) * 1, overlay.max_alpha))  # fadein
             oldalpha = overlay.max_alpha - alpha
             if oldalpha == 0: # as soon as the old image is faded out, put this one in the cache
-              self.overlaycache[overlay.provider_name] = image, self.cmin, self.csize # self.omin, osize
+              self.overlaycache[overlay.provider_name+overlay.layer] = image, self.cmin, self.csize # self.omin, osize
             with self.canvas:
               Color(1, 1, 1, alpha)
               Rectangle(pos=self.cmin, size=self.csize, texture=image.texture)
 
           # try displaying the previous image from this overlay, until the next one is fully displayed
-          image, pos, isize = self.overlaycache.get(overlay.provider_name, (None, None, None))
+          image, pos, isize = self.overlaycache.get(overlay.provider_name+overlay.layer, (None, None, None))
           if image:
             with self.canvas:
               Color(1, 1, 1, oldalpha)
               Rectangle(pos=pos, size=isize, texture=image.texture)
+              
+          if self.legend_cb:
+            # display the legend graphic
+            image = overlay.getLegendGraphic()
+            if image.loaded:
+              self.legend_cb(image)
+
       elif overlay.type == "wfs":
           geometries = None
           if self.lastmove is None or time.time() > self.lastmove + 0.5: # wait a second after moving before we try to contact the WFS
@@ -348,23 +359,25 @@ class MapViewerPlane(ScatterPlane):
                   l, m = overlay.co_to_ll(copos[0], copos[1])
                   x,y = self.get_xy_from_latlon(l, m) 
                   
-                  Color(0, 0, 0, 1)
+                  Color(0, 0, 0)
                   r = 10.0/self.scale
                   Ellipse(pos=(x-r/2, y-r/2), size=(r,r))
-                  Color(1, 1, 1, 1)
+                  Color(1, 1, 1)
                   r = 8.0/self.scale
                   Ellipse(pos=(x-r/2, y-r/2), size=(r,r))
+                  print x,y,r
                 elif geom.tag == "{%s}LinearRing" % GMLNS:
-                  copos = map(float,geom.getchildren()[0].text.split())
-                  points = []
-                  for i in xrange(0,len(copos),2):
-                    l, m = overlay.co_to_ll(copos[0], copos[1])
-                    x, y = self.get_xy_from_latlon(l, m) 
-                    points.append(x)
-                    points.append(y)
-                  points.extend(points[0:1])
-                  Color(1, 0.5, 0.5, 1)
-                  Line(points=points)
+                  #copos = map(float,geom.getchildren()[0].text.split())
+                  #points = []
+                  #for i in xrange(0,len(copos),2):
+                  #  l, m = overlay.co_to_ll(copos[0], copos[1])
+                  #  x, y = self.get_xy_from_latlon(l, m) 
+                  #  points.append(x)
+                  #  points.append(y)
+                  #points.extend(points[0:1])
+                  #Color(1, 0.5, 0.5)
+                  #Line(points=points)
+                  pass
           
     if self.status_cb:
       self.status_cb(self.tileserver.q_count, self.tilecount)
@@ -464,7 +477,7 @@ class MapViewer(StencilView):
     self.map._set_pos((x,y))
     
   def reset(self):
-    self.move_to(-6555.742468339471, -10304.331710006307,5.78284048773) #1920x1080
-    #self.move_to(-3748.8157983360124, -5857.7510923382652, 3.26647927983) #android
-
+    #self.move_to(-6555.742468339471, -10304.331710006307,5.78284048773) #1920x1080
+    self.move_to(-3748.8157983360124, -5857.7510923382652, 3.26647927983) #android
+    
 Factory.register('MapViewer', MapViewer)

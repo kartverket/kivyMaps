@@ -47,6 +47,7 @@ class SidePanel(Widget):
         self.align       = kwargs.get('align', 'center')
         self.corner_size = kwargs.get('corner_size', 30)
         self.duration    = kwargs.get('duration', .5)
+        self.relIndex    = kwargs.get('relative', 0)
         layout           = kwargs.get('layout', None)
         corner           = kwargs.get('corner', None)
 
@@ -76,7 +77,8 @@ class SidePanel(Widget):
             self.corner.size = corner.texture_size[0]+6, corner.texture_size[1]+6
             self.corner_size = None
         
-        super(SidePanel, self).add_widget(self.corner)
+        if corner:
+          super(SidePanel, self).add_widget(self.corner)
         self.corner.bind(on_press = self._corner_on_press)
 
         self.initial_pos = self.pos
@@ -115,7 +117,7 @@ class SidePanel(Widget):
         
         if visible:
             if side == 'right':
-                x = w.width - self.layout.width
+                x = w.width - self.layout.width 
             elif side == 'top':
                 y = w.height - self.layout.height
             elif side == 'left':
@@ -170,8 +172,10 @@ class SidePanel(Widget):
             self.layout.x = lx
         if side == 'left':
             cx = dx + self.layout.width
+            cy = cy + self.corner.height * self.relIndex
         elif side == 'right':
             cx = dx - self.corner.width
+            cy = cy + self.corner.height * self.relIndex
         elif side == 'top':
             cy = dy - self.corner.height
         elif side == 'bottom':
@@ -181,7 +185,13 @@ class SidePanel(Widget):
     def show(self, *largs):
         dpos = self._get_position_for(visible=True)
         cpos = self._get_corner_position_for(visible=True)
+        
+        # bring to front on activation
+        parent = self.parent
+        parent.remove_widget(self)
+        parent.add_widget(self)
         self.visible = True
+        
         Animation(d=self.duration, t='out_cubic', pos=dpos).start(self.layout)
         Animation(d=self.duration, t='out_cubic', pos=cpos).start(self.corner)
 
@@ -197,6 +207,10 @@ class SidePanel(Widget):
         anim.bind(on_complete=self._on_animation_complete_hide)
         anim.start(self.layout)
         Animation(d=self.duration, t='out_cubic', pos=cpos).start(self.corner)
+
+    def place(self, noop=None):
+        self.need_reposition = True
+        self.update(noop)
         
     def update(self, noop=None):
         w = self.get_parent_window()

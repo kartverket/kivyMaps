@@ -24,7 +24,6 @@ class WFSOverlayServer(object):
     available_maptype = dict(roadmap = 'Roadmap') # default
     type = "wfs" # TODO: replace handling in mapviewer with action handlers in the overlay class
  
-    '''Generic WMS server'''
     def __init__(self, progress_callback=None):    
       self.progress_callback = progress_callback
       

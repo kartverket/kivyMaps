@@ -50,6 +50,23 @@ class WMSOverlayServer(object):
       except Exception,e:
         Logger.error('OverlayServer could not find (or read) image %s [%s]' % (url, e))
         image = None
+        
+    def getLegendGraphic(self):
+      if self.legend is None and not self.triedlegend:
+        self.triedlegend = True
+        layer = self.layer
+        if "," in layer:
+          layer=layer[layer.rindex(",")+1:]
+        if self.legendlayer: 
+          layer = self.legendlayer
+        url = self.baseurl + "?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=%s&ext=.png" % (layer)
+        try:
+          print 'http://' + self.provider_host + url
+          image = Loader.image('http://' + self.provider_host + url)
+          self.legend = image
+        except Exception,e:
+          Logger.error('OverlayServer could not find LEGENDGRAPHICS for %s %s' % (self.baseurl, layer))
+      return self.legend
 
     def xy_to_co(self, lat, lon):
       if self.customBounds: 
@@ -99,29 +116,35 @@ class WMSOverlayServer(object):
     def initFromGetCapabilities(self, host, baseurl, layer = None, index = 0, srs = None):
       self.debug = (layer == None) and (index == 0)
       # GetCapabilities (Layers + SRS)
-      capabilities = urlopen(host + baseurl + "?SERVICE=WMS&VERSION=1.1.1&Request=GetCapabilities").read().strip()
-      try:
-          tree = ET.fromstring(capabilities)
-          if self.debug:
-            ET.dump(tree)
-          layers = tree.findall("Capability/Layer") #TODO: proper parsing of cascading layers and their SRS
-          data = {}
-          for l in layers:
-            self.parseLayer(l, data)
+      if layer is None or srs is None:
+        capabilities = urlopen(host + baseurl + "?SERVICE=WMS&VERSION=1.1.1&Request=GetCapabilities").read().strip()
+        try:
+            tree = ET.fromstring(capabilities)
+            if self.debug:
+              ET.dump(tree)
+            layers = tree.findall("Capability/Layer") #TODO: proper parsing of cascading layers and their SRS
+            data = {}
+            for l in layers:
+              self.parseLayer(l, data)
           
-          # Choose Layer and SRS by (alphabetical) index
-          if layer is None:
-            layer = sorted(data.keys())[index]
-          if srs is None:
-            srs = sorted(data[layer])[0]
-      except:
-          pass
+            # Choose Layer and SRS by (alphabetical) index
+            if layer is None:
+              layer = sorted(data.keys())[index]
+            if srs is None:
+              srs = sorted(data[layer])[0]
+        except:
+            pass
       print "Displaying from %s/%s: layer %s in SRS %s." % (host, baseurl, layer, srs)
       
       # generate tile URL and init projection by EPSG code
-      self.url = baseurl + "?LAYERS=%s&SRS=%s&FORMAT=image/png&TRANSPARENT=TRUE&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap" % (layer, srs)
+      self.layer = layer
+      self.baseurl = baseurl
+      self.url = baseurl + "?LAYERS=%s&SRS=%s&FORMAT=image/png&TRANSPARENT=TRUE&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&STYLES=" % (layer, srs)
       self.isPGoogle = False
       self.isPLatLon = False
+      self.legend = None
+      self.legendlayer = None
+      self.triedlegend = False
       if srs=="EPSG:4326":
         self.isPLatLon = True
       elif srs=="EPSG:900913" or srs == "EPSG:3857":

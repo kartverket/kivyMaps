@@ -8,7 +8,7 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.button import Button
-from kivy.uix.sidepanel import SidePanel
+from sidepanel import SidePanel
 from MapViewer import MapViewer
 import WMSTileServer
 from WMSOverlayServer import *
