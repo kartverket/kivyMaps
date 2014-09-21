@@ -476,6 +476,11 @@ class MapViewer(StencilView):
     self.map._set_scale(z)
     self.map._set_pos((x,y))
     
+  def center_to_latlon(self, coord_latlon, screen_w, screen_h):
+    zero_xy = ( (screen_w*0.5)-(TILE_W*self.map.scale) , (screen_h*0.5)-(TILE_H*self.map.scale) )
+    target_xy = self.map.get_xy_from_latlon( *coord_latlon )
+    self.move_to( zero_xy[0]- target_xy[0], zero_xy[1]- target_xy[1], self.map.scale)
+
   def reset(self):
     #self.move_to(-6555.742468339471, -10304.331710006307,5.78284048773) #1920x1080
     self.move_to(-3748.8157983360124, -5857.7510923382652, 3.26647927983) #android
