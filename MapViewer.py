@@ -415,8 +415,8 @@ class MapViewerPlane(ScatterPlane):
 
   def get_xy_from_latlon(self, lat, lon):
     '''Return x/y location from latitude/longitude'''
-    x, y = latlon_to_unit(lat, lon)      # FIXME: grok + document
-    return Vector(x + 1, y + 1) * (TILE_W, TILE_H)
+    (ratio_x, ratio_y) = latlon_to_unit(lat % 180, lon % 360)
+    return (ratio_x * TILE_W * self.scale, ratio_y * TILE_H * self.scale)
         
 
   def distance(self, latlon1, latlon2):
